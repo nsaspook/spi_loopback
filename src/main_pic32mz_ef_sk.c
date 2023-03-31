@@ -9,12 +9,14 @@
 #define	BANK1		0xA000A000	// bank 1 frame buffer memory address
 #define	DMA_GAP		1		// set to 0 for SPI byte gaps in DMA transmissions
 #define USE_DMA
+#define REC_TIMEOUT	200
+#define CT_TIMEOUT	(CORE_TIMER_FREQUENCY / 1000000) * REC_TIMEOUT
 
 /*
  * use DMA-able memory for string storage
  */
 char __attribute__((address(BANK1), coherent)) spi_buffer[] = "The quick brown fox jumps over the lazy dogs back";
-char __attribute__((address(BANK1 + 128), coherent)) spi_rec_buffer[128];
+char __attribute__((address(BANK1 + 128), coherent)) spi_rec_buffer[128] = "receiver testing";
 volatile bool dmaT_done = false, dmaR_done = false, purge = true;
 
 /*
@@ -25,7 +27,8 @@ void SPI2DmaChannelHandler_State(DMAC_TRANSFER_EVENT, uintptr_t);
 
 int main(void)
 {
-	uint32_t startCount, endCount;
+	uint32_t startCount, endCount, display_len = strlen(spi_buffer);
+
 	/* Initialize all modules */
 	SYS_Initialize(NULL);
 
@@ -46,6 +49,7 @@ int main(void)
 #ifndef USE_DMA
 		LED_Toggle();
 #endif
+		UART2_Write(spi_rec_buffer, display_len); // send the received SPI2 buffer for signal loop monitor
 		CORETIMER_DelayMs(100); // 10 Hz updates for blink-led
 		dmaT_done = false;
 		dmaR_done = false;
@@ -56,7 +60,7 @@ int main(void)
 		RS_Set(); // debug sig
 		DMAC_ChannelTransfer(DMAC_CHANNEL_0, (const void *) spi_buffer, (size_t) strlen(spi_buffer), (const void *) &SPI1BUF, (size_t) 1, (size_t) 1);
 		/* Calculate the end count for the given delay */
-		endCount = (CORE_TIMER_FREQUENCY / 1000000) * 200;
+		endCount = CT_TIMEOUT;
 		startCount = _CP0_GET_COUNT();
 		while (!dmaR_done) { // While DMA running processing loop, check for receive errors or timeouts
 			CSB_Toggle(); // do something
@@ -69,6 +73,7 @@ int main(void)
 				LED_Toggle(); // blink per block received
 				SS_CS_Set(); // disable slave SPI
 				SPI2_REC_DATA_Clear();
+				memcpy(spi_rec_buffer, "TIMEOUT TIMEOUT TIMEOUT    ",25);
 				break;
 			};
 		};
