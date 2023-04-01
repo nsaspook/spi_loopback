@@ -43,6 +43,7 @@ int main(void)
 	SPI1CONbits.ENHBUF = true; // enable FIFO
 
 	DMAC_ChannelCallbackRegister(DMAC_CHANNEL_7, SPI2DmaChannelHandler_State, 0); // RX, SCK pair
+	SPI2CONbits.DISSDO = 1; // SPI receiver only, SDO2 pin can be used as normal PPS
 	SS2_IN_InterruptDisable();
 
 	while (true) {
@@ -73,7 +74,7 @@ int main(void)
 				LED_Toggle(); // blink per block received
 				SS_CS_Set(); // disable slave SPI
 				SPI2_REC_DATA_Clear();
-				memcpy(spi_rec_buffer, "TIMEOUT TIMEOUT TIMEOUT    ",25);
+				memcpy(spi_rec_buffer, "TIMEOUT TIMEOUT TIMEOUT    ", 25);
 				break;
 			};
 		};
