@@ -15,9 +15,10 @@
 /*
  * use DMA-able memory for string storage
  */
-char __attribute__((address(BANK1), coherent)) spi_buffer[] = "The quick brown fox jumps over the lazy dogs back";
+char __attribute__((address(BANK1), coherent)) spi_buffer[] = "0 The quick brown fox jumps over the lazy dogs back";
 char __attribute__((address(BANK1 + 128), coherent)) spi_rec_buffer[128] = "receiver testing";
 volatile bool dmaT_done = false, dmaR_done = false, purge = true;
+uint8_t err_count = 0;
 
 /*
  * DMA complete callbacks
@@ -50,6 +51,7 @@ int main(void)
 #ifndef USE_DMA
 		LED_Toggle();
 #endif
+		spi_rec_buffer[0] += err_count;
 		UART2_Write(spi_rec_buffer, display_len); // send the received SPI2 buffer for signal loop monitor
 		CORETIMER_DelayMs(100); // 10 Hz updates for blink-led
 		dmaT_done = false;
@@ -75,6 +77,7 @@ int main(void)
 				SS_CS_Set(); // disable slave SPI
 				SPI2_REC_DATA_Clear();
 				memcpy(spi_rec_buffer, "TIMEOUT TIMEOUT TIMEOUT    ", 25);
+				err_count++;
 				break;
 			};
 		};
